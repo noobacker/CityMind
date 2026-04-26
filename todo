@@ -1,0 +1,33 @@
+<!-- 1. the responses are very slow. and the starting message is boring, annoying sounds cleshy/crying, maybe let the user start the chat, we can give some suggestions aboiut what to ask (once clicked - it will send that message - these messages will be new each time and not same.) -->
+
+<!-- 2. I didnt like the UI, can you please improve it ? make it modern, use glassmorphism, and other react UI libraries or something else, i want modern, clean, not too dark or white, interactive and some 3djs too.  -->
+
+3. maybe we can make the city as a small 3d interactive/mobile/moving avatar across the website ?user can interact with that too. (how is this idea ?)
+
+<!-- 4. highlighth the area which is being discussed about in latest message in map. show related symbols like, emotions, problems, etc. we can also add a option to see entire NYC with the sections showing teh emotions, problemns, issues, hazards and possible fixes. -->
+
+<!-- 5. we are scraping the data right ? so is it possible to show the resources/citation links at the end of the messages - this may increase the trust factor. -->
+
+<!-- 6. It shows "Prompts are fresh on every load. -->
+ but alwasys shows "
+Give me the fastest fix for harlem is at 50/100 with noise - residential.
+Give me a calm version of the city status in one sentence.
+What is the single biggest pressure in Harlem right now?
+Which borough looks the most stable, and why?"
+
+
+
+========================================================================QUESTIONS ========================================================================
+
+1. Manhattan is currently at 74/100 stress. Is this a 'headache' caused by traffic friction, or a 'fever' caused by infrastructure failure in the West Village?
+
+2. I'm walking through the Lower East Side right now, which specific street corner would you recommend not to go to, interms of safety, life hazard, gun violence, etc ?
+
+3. Find me a neighborhood that is 'holding its breath'—somewhere that is statistically quieter than its 48-hour average, and tell me if it’s a calm state or an anomaly.
+
+4. As the sun sets, which borough is 'inhaling' the most stress from its neighbors, and where is that pressure being channeled?
+
+Friendly, concise, in bullet points, under 10 words each.
+1st point : area name and surrounding.
+2nd point : issue in brief
+3rd point : how to resolve. (upto 20 words for this point)
