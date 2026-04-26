@@ -52,9 +52,13 @@ function pickUniquePrompts(pulse: CityPulse): string[] {
     `What would make ${hotNeighborhoods[1] ?? 'that area'} feel better in 48 hours?`,
     `Is the current stress in ${hotNeighborhoods[2] ?? 'the Bronx'} an anomaly or a trend?`,
     `Tell me about the neural synchrony between ${boroughs[0]} and ${boroughs[1]}.`,
+    `I'm in ${hotNeighborhoods[0] ?? 'Lower East Side'} right now, what should I avoid?`,
+    `Find me a neighborhood that is 'holding its breath' right now.`,
+    `Which borough is 'inhaling' the most stress from its neighbors?`,
+    `Is ${hotNeighborhoods[0] ?? 'Manhattan'}'s stress a 'headache' or a 'fever'?`,
   ];
 
-  // Shuffle using a random sort to ensure variety
+  // Randomly shuffle and take 4
   return [...basePrompts].sort(() => Math.random() - 0.5).slice(0, 4);
 }
 
@@ -83,7 +87,7 @@ export function Terminal({ pulse, highlightedNeighborhoods, onHighlightedNeighbo
   const [isListening, setIsListening] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [ttsProvider, setTtsProvider] = useState<'huggingface' | 'elevenlabs'>('huggingface');
-  const [directives, setDirectives] = useState('Friendly, concise, in bullet points, under 10 words each.');
+  const [directives, setDirectives] = useState('Friendly, concise, in bullet points, under 10 words each.\n1st point : area name and surrounding.\n2nd point : issue in brief\n3rd point : how to resolve (upto 20 words for this point).');
   const [isInitialized, setIsInitialized] = useState(false);
 
   
@@ -312,7 +316,7 @@ export function Terminal({ pulse, highlightedNeighborhoods, onHighlightedNeighbo
               </p>
               {turn.role === 'assistant' && (
                 <div className="sourceCitation">
-                  REF: <span>NYC OPEN DATA</span> • <span>MAPBOX_TOPOLOGY</span>
+                  REF: <a href="https://opendata.cityofnewyork.us/" target="_blank" rel="noreferrer">NYC OPEN DATA (LIVE FEED)</a> • <a href="https://www.mapbox.com/about/maps/" target="_blank" rel="noreferrer">MAPBOX_TOPOLOGY</a>
                 </div>
               )}
             </div>
