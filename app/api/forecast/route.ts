@@ -1,14 +1,17 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getCityPulse } from '@/lib/pulse/buildCityContext';
 import { fetchForecastWeather } from '@/lib/fetchers/fetchForecastWeather';
 import { fetchEvents } from '@/lib/fetchers/fetchEvents';
 import { buildForecastPulse } from '@/lib/pulse/buildForecastPulse';
+import { resolveCityFromSearchParams } from '@/lib/cities/resolveCity';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const city = await resolveCityFromSearchParams(request.nextUrl.searchParams);
+
   const [currentPulseResult, forecastWeatherResult, eventsResult] = await Promise.allSettled([
-    getCityPulse(),
-    fetchForecastWeather(),
-    fetchEvents(),
+    getCityPulse(city),
+    fetchForecastWeather(city),
+    fetchEvents(city),
   ]);
 
   if (currentPulseResult.status === 'rejected') {
@@ -18,7 +21,7 @@ export async function GET() {
   const forecastWeather =
     forecastWeatherResult.status === 'fulfilled'
       ? forecastWeatherResult.value
-      : { temp: 72, condition: 'partly cloudy', precipitation: false, windSpeed: 10, heatwave: false };
+      : { temp: city.tempUnit === 'F' ? 72 : 22, condition: 'partly cloudy', precipitation: false, windSpeed: 10, heatwave: false, unit: city.tempUnit };
 
   const events =
     eventsResult.status === 'fulfilled' ? eventsResult.value.events : [];

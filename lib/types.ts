@@ -1,26 +1,19 @@
-export type BoroughName = 'manhattan' | 'brooklyn' | 'bronx' | 'queens' | 'statenIsland';
+export type BoroughName = string;
 
 export interface NeighborhoodPulse {
+  name: string;
+  borough: string;
   stress: number;
   anomaly: boolean;
-  complaintCount: number;
-  topComplaint: string;
-  topIssues: string[];
-  name: string;
-  borough: BoroughName;
-  stress: number;
   complaintCount: number;
   topComplaint: string;
   topIssues?: string[];
-  anomaly: boolean;
   socialVibe?: string;
-  socialVibrancy?: number; // 0-100
+  socialVibrancy?: number;
   lat: number;
   lon: number;
   forecastReason?: string;
 }
-
-
 
 export interface BoroughData {
   stress: number;
@@ -29,22 +22,34 @@ export interface BoroughData {
   topIssue: string;
 }
 
+export interface CityIdentity {
+  id: string;
+  name: string;
+  country: string;
+  countryCode: string;
+  flag: string;
+  timezone: string;
+  tempUnit: 'F' | 'C';
+  isCustom?: boolean;
+}
+
 export interface CityPulse {
+  cityId: string;
+  cityName: string;
+  nickname?: string;
+  cityIdentity?: CityIdentity;
   timestamp: string;
   overallStress: number;
   mood: string;
   moodEmoji: string;
   neighborhoods: Record<string, NeighborhoodPulse>;
-  boroughs: Record<BoroughName, {
-    stress: number;
-    complaintCount: number;
-    aqi: number;
-    topIssue: string;
-  }>;
+  boroughs: Record<string, BoroughData>;
+  boroughLabels: Record<string, string>;
   mta: {
     disruptions: string[];
     affectedLines: string[];
     severity: 'good' | 'minor' | 'major' | 'severe';
+    label?: string;
   };
   airQuality: {
     aqi: number;
@@ -56,6 +61,7 @@ export interface CityPulse {
     condition: string;
     precipitation: boolean;
     windSpeed: number;
+    unit?: 'F' | 'C';
   };
   activeEvents: string[];
   topAlerts: string[];

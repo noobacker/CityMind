@@ -1,4 +1,4 @@
-type FetchStatus = 'cache-hit' | 'live' | 'fallback' | 'error';
+type FetchStatus = 'cache-hit' | 'live' | 'fallback' | 'error' | 'synthetic';
 
 interface FetchLogDetails {
   source: string;

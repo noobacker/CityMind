@@ -1,4 +1,5 @@
-export interface NycNow {
+export interface CityNow {
+  cityName: string;
   timezone: string;
   isoUtc: string;
   localDate: string;
@@ -10,7 +11,8 @@ export interface NycNow {
   readableDate: string;
 }
 
-const DEFAULT_TIMEZONE = process.env.CITY_TIMEZONE || 'America/New_York';
+// Backwards-compat alias
+export type NycNow = CityNow;
 
 function getParts(date: Date, timeZone: string) {
   const parts = new Intl.DateTimeFormat('en-US', {
@@ -42,15 +44,17 @@ function getParts(date: Date, timeZone: string) {
   };
 }
 
-export function getNycNow(now = new Date()): NycNow {
-  const parts = getParts(now, DEFAULT_TIMEZONE);
+export function getCityNow(options: { cityName: string; timezone: string }, now = new Date()): CityNow {
+  const tz = options.timezone || 'UTC';
+  const parts = getParts(now, tz);
   const localDate = `${parts.year}-${String(new Intl.DateTimeFormat('en-CA', {
-    timeZone: DEFAULT_TIMEZONE,
+    timeZone: tz,
     month: '2-digit',
   }).format(now)).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`;
 
   return {
-    timezone: DEFAULT_TIMEZONE,
+    cityName: options.cityName,
+    timezone: tz,
     isoUtc: now.toISOString(),
     localDate,
     localTime: `${parts.hour}:${parts.minute}:${parts.second} ${parts.dayPeriod}`,
@@ -62,24 +66,27 @@ export function getNycNow(now = new Date()): NycNow {
   };
 }
 
+// Backwards-compat: defaults to NYC
+export function getNycNow(now = new Date()): CityNow {
+  return getCityNow({ cityName: 'New York City', timezone: 'America/New_York' }, now);
+}
+
 export function isDateTimeQuestion(text: string): boolean {
   const value = text.toLowerCase();
   return /\b(date|day|today|year|time|month|weekday)\b/.test(value) || /what\s+day|what\s+date|what\s+year|today\??/.test(value);
 }
 
-export function buildDateTimeReply(text: string, now: NycNow): string {
+export function buildDateTimeReply(text: string, now: CityNow): string {
   const value = text.toLowerCase();
   const asksYear = /\byear\b|what\s+year/.test(value);
   const asksTime = /\btime\b|what\s+time/.test(value);
   const asksDateOrDay = /\bdate\b|\bday\b|today|weekday|month/.test(value);
 
   if (asksYear && !asksDateOrDay) {
-    return `It is ${now.year}. In my timezone (${now.timezone}), I am tracking live time.`;
+    return `It is ${now.year}. In ${now.cityName} (${now.timezone}), I am tracking live time.`;
   }
-
   if (asksTime && !asksDateOrDay) {
-    return `Right now in New York, it is ${now.localTime} on ${now.readableDate}.`;
+    return `Right now in ${now.cityName}, it is ${now.localTime} on ${now.readableDate}.`;
   }
-
-  return `Today in New York is ${now.readableDate}. Current local time is ${now.localTime}.`;
+  return `Today in ${now.cityName} is ${now.readableDate}. Current local time is ${now.localTime}.`;
 }

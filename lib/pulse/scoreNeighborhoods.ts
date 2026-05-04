@@ -1,4 +1,4 @@
-import type { BoroughName, NeighborhoodPulse } from '@/lib/types';
+import type { NeighborhoodPulse } from '@/lib/types';
 
 export interface NeighborhoodRawData {
   complaintCount: number;
@@ -19,29 +19,22 @@ const SEVERITY_BONUS: Record<string, number> = {
   'Street Light Condition': 8,
   'PAINT/PLASTER': 5,
   'Air Quality': 20,
+  'Power Outage': 18,
+  'Construction Noise': 6,
+  'Public Safety': 15,
+  'Sewer': 10,
 };
 
-
 export function scoreNeighborhood(data: NeighborhoodRawData): number {
-  // Balanced Scoring: Base score from complaints (logarithmic feel)
-  // Divisor is 60 now to make the scale more realistic
   let score = Math.min((data.complaintCount / 60) * 40, 50);
-  
-  // Add severity bonus instead of multiplier to prevent score explosion
   score += SEVERITY_BONUS[data.topComplaint] ?? 0;
-
-  // Environmental and infrastructure stressors (tuned down)
-  score += (data.aqi - 1) * 4; 
-  if (data.mtaDisruptionNearby) score += 12; // Moderate jump for MTA
+  score += (data.aqi - 1) * 4;
+  if (data.mtaDisruptionNearby) score += 12;
   if (data.precipitation) score += 5;
   if (data.windSpeed > 20) score += 5;
   if (data.majorEventNearby) score += 8;
-  
-  // Floor at 1 to show life
   return Math.max(1, Math.min(Math.round(score), 100));
 }
-
-
 
 export function detectAnomaly(current: number, historical: number[]): boolean {
   if (historical.length === 0) return false;
@@ -51,7 +44,7 @@ export function detectAnomaly(current: number, historical: number[]): boolean {
   return (current - mean) / std > 2;
 }
 
-export function summarizeBoroughStress(neighborhoods: Record<string, NeighborhoodPulse>, borough: BoroughName) {
+export function summarizeBoroughStress(neighborhoods: Record<string, NeighborhoodPulse>, borough: string) {
   const entries = Object.entries(neighborhoods).filter(([, neighborhood]) => neighborhood.borough === borough);
   const complaintCount = entries.reduce((sum, [, neighborhood]) => sum + neighborhood.complaintCount, 0);
   const stress = Math.round(entries.reduce((sum, [, neighborhood]) => sum + neighborhood.stress, 0) / Math.max(entries.length, 1));

@@ -6,120 +6,120 @@ import { CityMap } from '@/components/CityMap';
 import { Terminal } from '@/components/Terminal';
 import { VitalsBar } from '@/components/VitalsBar';
 import { NeuralPerspective } from '@/components/NeuralPerspective';
+import { AnomalyCenter } from '@/components/AnomalyCenter';
+import { useCity } from '@/components/CityProvider';
 import type { CityPulse, ForecastPulse } from '@/lib/types';
 
-
-type VitalsPayload = Pick<CityPulse, 'overallStress' | 'mood' | 'moodEmoji' | 'mta' | 'airQuality' | 'weather' | 'topAlerts'>;
-
-const FALLBACK_PULSE: CityPulse = {
-  timestamp: new Date().toISOString(),
-  overallStress: 0,
-  mood: 'calm',
-  moodEmoji: '◌',
-  neighborhoods: {},
-  boroughs: {
-    manhattan: { stress: 0, complaintCount: 0, aqi: 0, topIssue: 'Initializing...' },
-    brooklyn: { stress: 0, complaintCount: 0, aqi: 0, topIssue: 'Initializing...' },
-    bronx: { stress: 0, complaintCount: 0, aqi: 0, topIssue: 'Initializing...' },
-    queens: { stress: 0, complaintCount: 0, aqi: 0, topIssue: 'Initializing...' },
-    statenIsland: { stress: 0, complaintCount: 0, aqi: 0, topIssue: 'Initializing...' },
-  },
-  mta: {
-    disruptions: [],
-    affectedLines: [],
-    severity: 'good',
-  },
-  airQuality: {
-    aqi: 0,
-    worstBorough: 'None',
-    pm25: 0,
-  },
-  weather: {
-    temp: 0,
-    condition: 'syncing...',
-    precipitation: false,
-    windSpeed: 0,
-  },
-  activeEvents: ['Synchronizing neural grid...'],
-  topAlerts: [],
+type VitalsPayload = Pick<CityPulse, 'overallStress' | 'mood' | 'moodEmoji' | 'mta' | 'airQuality' | 'weather' | 'topAlerts'> & {
+  cityName?: string;
+  cityIdentity?: CityPulse['cityIdentity'];
 };
+
+function buildFallbackPulse(cityName: string, cityId: string, lat?: number, lon?: number): CityPulse {
+  return {
+    cityId,
+    cityName,
+    cityIdentity: lat && lon ? { id: cityId, name: cityName, lat, lon, country: '', countryCode: '', flag: '🌍' } : undefined,
+    timestamp: new Date().toISOString(),
+    overallStress: 0,
+    mood: 'calm',
+    moodEmoji: '◌',
+    neighborhoods: {},
+    boroughs: {},
+    boroughLabels: {},
+    mta: { disruptions: [], affectedLines: [], severity: 'good', label: 'Transit' },
+    airQuality: { aqi: 0, worstBorough: 'None', pm25: 0 },
+    weather: { temp: 0, condition: 'syncing...', precipitation: false, windSpeed: 0, unit: 'F' },
+    activeEvents: ['Synchronizing neural grid...'],
+    topAlerts: [],
+  };
+}
 
 
 export default function DashboardPage() {
-  const [pulse, setPulse] = useState<CityPulse>(FALLBACK_PULSE);
-  const [vitals, setVitals] = useState<VitalsPayload>({
-    overallStress: FALLBACK_PULSE.overallStress,
-    mood: FALLBACK_PULSE.mood,
-    moodEmoji: FALLBACK_PULSE.moodEmoji,
-    mta: FALLBACK_PULSE.mta,
-    airQuality: FALLBACK_PULSE.airQuality,
-    weather: FALLBACK_PULSE.weather,
-    topAlerts: FALLBACK_PULSE.topAlerts,
+  const { city, apiQuery, isReady } = useCity();
+  const [pulse, setPulse] = useState<CityPulse>(() => buildFallbackPulse(city.name, city.id, city.lat, city.lon));
+  const [vitals, setVitals] = useState<VitalsPayload>(() => {
+    const fallback = buildFallbackPulse(city.name, city.id, city.lat, city.lon);
+
+    return {
+      overallStress: fallback.overallStress,
+      mood: fallback.mood,
+      moodEmoji: fallback.moodEmoji,
+      mta: fallback.mta,
+      airQuality: fallback.airQuality,
+      weather: fallback.weather,
+      topAlerts: fallback.topAlerts,
+      cityName: fallback.cityName,
+    };
   });
   const [highlightedNeighborhoods, setHighlightedNeighborhoods] = useState<string[]>([]);
   const [anomalies, setAnomalies] = useState<{ id: string; msg: string }[]>([]);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [showPerspective, setShowPerspective] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [forecastPulse, setForecastPulse] = useState<ForecastPulse | null>(null);
+  const [showForecast, setShowForecast] = useState(false);
 
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
 
-
-  const [forecastPulse, setForecastPulse] = useState<ForecastPulse | null>(null);
-  const [showForecast, setShowForecast] = useState(false);
-
+  useEffect(() => {
+    setHighlightedNeighborhoods([]);
+    setForecastPulse(null);
+    setShowForecast(false);
+    setPulse(buildFallbackPulse(city.name, city.id, city.lat, city.lon));
+  }, [city.id, city.name, city.lat, city.lon]);
 
 
   useEffect(() => {
+    if (!isReady) return;
     let active = true;
 
     async function loadPulse() {
       if (isPaused) return;
       try {
-
-        const response = await fetch('/api/pulse', { cache: 'no-store' });
+        const response = await fetch(`/api/pulse?${apiQuery}`, { cache: 'no-store' });
         if (!response.ok || !active) return;
         const data = (await response.json()) as CityPulse;
         setPulse((current) => ({ ...current, ...data }));
-        
-        // Detect and trigger anomaly toasts
+
         const neighborhoodList = Object.entries(data.neighborhoods);
-        const spike = neighborhoodList.find(([_, stats]) => stats.stress > 80);
+        const spike = neighborhoodList.find(([, stats]) => stats.stress > 80);
         if (spike) {
           const id = Date.now().toString();
-          setAnomalies(prev => [...prev, { id, msg: `ANOMALY DETECTED: ${spike[0]} is critically stressed.` }]);
-          setTimeout(() => {
-            setAnomalies(prev => prev.filter(a => a.id !== id));
-          }, 6000);
+          setAnomalies((prev) => {
+            // Only add if not already there recently to avoid spam
+            if (prev.some(a => a.msg.includes(spike[0]))) return prev;
+            return [{ id, msg: `ANOMALY DETECTED: ${spike[0]} is critically stressed.` }, ...prev].slice(0, 15);
+          });
         }
       } catch {
-        // Keep fallback pulse
+        // keep fallback
       }
     }
 
     async function loadVitals() {
       if (isPaused) return;
       try {
-
-        const response = await fetch('/api/vitals', { cache: 'no-store' });
+        const response = await fetch(`/api/vitals?${apiQuery}`, { cache: 'no-store' });
         if (!response.ok || !active) return;
         const data = (await response.json()) as VitalsPayload;
         setVitals(data);
       } catch {
-        // Keep fallback vitals
+        // keep fallback
       }
     }
 
     async function loadForecast() {
       try {
-        const response = await fetch('/api/forecast', { cache: 'no-store' });
+        const response = await fetch(`/api/forecast?${apiQuery}`, { cache: 'no-store' });
         if (!response.ok || !active) return;
         const data = (await response.json()) as ForecastPulse;
         setForecastPulse(data);
       } catch {
-        // Forecast is optional — keep null
+        // optional
       }
     }
 
@@ -134,36 +134,23 @@ export default function DashboardPage() {
       window.clearInterval(interval);
       window.clearInterval(vitalsInterval);
     };
-  }, []);
+  }, [apiQuery, isReady, isPaused]);
 
   return (
     <main className="appShell" data-theme={theme}>
-      <VitalsBar 
-        pulse={vitals} 
-        theme={theme} 
-        onToggleTheme={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} 
+      <VitalsBar
+        pulse={vitals}
+        theme={theme}
+        onToggleTheme={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
         onOpenPerspective={() => setShowPerspective(true)}
       />
-      
-      <NeuralPerspective 
-        pulse={pulse} 
-        isOpen={showPerspective} 
-        onClose={() => setShowPerspective(false)} 
+
+      <NeuralPerspective pulse={pulse} isOpen={showPerspective} onClose={() => setShowPerspective(false)} />
+
+      <AnomalyCenter 
+        anomalies={anomalies} 
+        onClear={() => setAnomalies([])} 
       />
-
-
-      
-      <div className="toastContainer">
-        {anomalies.map(a => (
-          <div key={a.id} className="anomalyToast">
-            <div className="toastSeverity" />
-            <div>
-              <div style={{ fontSize: '0.6rem', color: 'var(--stress)', letterSpacing: '0.1em', fontWeight: 800 }}>PRIORITY_ALERT</div>
-              <div style={{ marginTop: '4px', fontSize: '0.9rem' }}>{a.msg}</div>
-            </div>
-          </div>
-        ))}
-      </div>
 
       <section className="dashboardGrid">
         <div className="terminalCol">
@@ -173,7 +160,7 @@ export default function DashboardPage() {
             onHighlightedNeighborhoodsChange={setHighlightedNeighborhoods}
           />
         </div>
-        
+
         <div className="visualCol">
           <div className="cityAvatarStage" style={{ height: '240px', width: '100%', position: 'relative' }}>
             <CityAvatar pulse={pulse} theme={theme} onFocusNeighborhoodsChange={setHighlightedNeighborhoods} />
@@ -188,14 +175,9 @@ export default function DashboardPage() {
             showForecast={showForecast}
             onToggleForecast={() => setShowForecast((v) => !v)}
             onSandboxToggle={setIsPaused}
-            onSandboxImpact={(msg) => {
-              // We can show these impacts in the terminal or toast if needed
-            }}
+            onSandboxImpact={() => {}}
           />
-
-
         </div>
-
       </section>
     </main>
   );

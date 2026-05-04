@@ -6,8 +6,8 @@ import { motion, useSpring } from 'framer-motion';
 export function NeuralCursor() {
   const [isVisible, setIsVisible] = useState(false);
   
-  const mouseX = useSpring(0, { damping: 20, stiffness: 250 });
-  const mouseY = useSpring(0, { damping: 20, stiffness: 250 });
+  const mouseX = useSpring(0, { damping: 50, stiffness: 1000 });
+  const mouseY = useSpring(0, { damping: 50, stiffness: 1000 });
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -35,23 +35,28 @@ export function NeuralCursor() {
   return (
     <>
       <motion.div
-        className="fixed top-0 left-0 w-6 h-6 border border-[#ccff00] rounded-full pointer-events-none z-[9999]"
+        className="fixed top-0 left-0 w-6 h-6 border rounded-full pointer-events-none z-[9999]"
         style={{
           x: mouseX,
           y: mouseY,
           translateX: '-50%',
           translateY: '-50%',
+          borderColor: 'var(--accent)',
+          opacity: 0.5,
         }}
       />
       <motion.div
-        className="fixed top-0 left-0 w-1.5 h-1.5 bg-[#ccff00] rounded-full pointer-events-none z-[9999] shadow-[0_0_8px_#ccff00]"
+        className="fixed top-0 left-0 w-1.5 h-1.5 rounded-full pointer-events-none z-[9999]"
         style={{
           x: mouseX,
           y: mouseY,
           translateX: '-50%',
           translateY: '-50%',
+          backgroundColor: 'var(--accent)',
+          boxShadow: '0 0 10px var(--accent-glow)',
         }}
       />
     </>
   );
+
 }

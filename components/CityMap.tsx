@@ -4,8 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 
 import type { FeatureCollection, Point } from 'geojson';
-import { BOROUGH_LABELS, NEIGHBORHOODS } from '@/lib/constants/neighborhoods';
-import type { CityPulse, ForecastPulse } from '@/lib/types';
+import type { CityPulse, ForecastPulse, NeighborhoodPulse } from '@/lib/types';
 
 interface CityMapProps {
   pulse: CityPulse;
@@ -41,90 +40,114 @@ const ISSUE_ICONS: Record<string, string> = {
   'Dirty Conditions': '🧹',
   'Homeless Encampment': '⛺',
   'Sidewalk Condition': '🚶',
-  'default': '⚠️'
+  'Power Outage': '⚡',
+  'Air Quality': '🌫️',
+  'Construction Noise': '🏗️',
+  'Public Safety': '🛡️',
+  'Sewer': '🕳️',
+  'Garbage Collection': '🗑️',
+  'Traffic Signal': '🚦',
+  'default': '⚠️',
 };
 
 const RESOURCES = [
-  { id: 'police', label: 'NYPD Unit', icon: '👮', reduction: 12, affinity: ['Noise - Street/Sidewalk', 'Illegal Parking', 'Gun Violence', 'Blocked Driveway'] },
-  { id: 'sanitation', label: 'DSNY Crew', icon: '🧹', reduction: 18, affinity: ['Dirty Conditions', 'Rodent', 'Trash', 'Sidewalk Condition'] },
+  { id: 'police', label: 'Police Unit', icon: '👮', reduction: 12, affinity: ['Noise - Street/Sidewalk', 'Illegal Parking', 'Public Safety', 'Blocked Driveway'] },
+  { id: 'sanitation', label: 'Sanitation', icon: '🧹', reduction: 18, affinity: ['Dirty Conditions', 'Rodent', 'Garbage Collection', 'Sidewalk Condition'] },
   { id: 'emt', label: 'EMS Response', icon: '🚑', reduction: 22, affinity: ['Homeless Encampment', 'Heatwave', 'Public Safety'] },
-  { id: 'mta', label: 'MTA Repair', icon: '🛠️', reduction: 15, affinity: ['Water System', 'Street Light Condition', 'MTA Disruptions', 'Bridge Condition'] },
+  { id: 'transit', label: 'Transit Repair', icon: '🛠️', reduction: 15, affinity: ['Water System', 'Street Light Condition', 'Power Outage', 'Traffic Signal'] },
 ];
 
+function pulseSeeds(pulse: CityPulse): NeighborhoodPulse[] {
+  return Object.values(pulse.neighborhoods);
+}
 
 function buildNeighborhoodGeojson(pulse: CityPulse): FeatureCollection<Point, NeighborhoodFeatureProps> {
+  const labels = pulse.boroughLabels || {};
   return {
     type: 'FeatureCollection',
-    features: NEIGHBORHOODS.map((seed) => {
-      const neighborhood = pulse.neighborhoods[seed.name] ?? {
-        stress: 0,
-        topComplaint: 'No live data yet',
-        anomaly: false,
-      };
-
-      return {
-        type: 'Feature',
-        geometry: {
-          type: 'Point',
-          coordinates: [seed.lon, seed.lat],
-        },
-        properties: {
-          name: seed.name,
-          borough: BOROUGH_LABELS[seed.borough],
-          stress: neighborhood.stress,
-          topComplaint: neighborhood.topComplaint,
-          topIssues: neighborhood.topIssues ?? [],
-          anomaly: neighborhood.anomaly,
-          icon: neighborhood.socialVibe ? '🌟' : (ISSUE_ICONS[neighborhood.topComplaint] || ISSUE_ICONS['default']),
-        },
-      };
-    }),
+    features: pulseSeeds(pulse).map((n) => ({
+      type: 'Feature',
+      geometry: {
+        type: 'Point',
+        coordinates: [n.lon, n.lat],
+      },
+      properties: {
+        name: n.name,
+        borough: labels[n.borough] ?? n.borough,
+        stress: n.stress,
+        topComplaint: n.topComplaint,
+        topIssues: n.topIssues ?? [],
+        anomaly: n.anomaly,
+        icon: n.socialVibe ? '🌟' : (ISSUE_ICONS[n.topComplaint] || ISSUE_ICONS['default']),
+      },
+    })),
   };
 }
 
-export function CityMap({ pulse, theme, highlightedNeighborhoods, onSelectNeighborhood, forecastPulse, showForecast = false, onToggleForecast, onSandboxToggle, onSandboxImpact }: CityMapProps) {
-  const [isSandbox, setIsSandbox] = useState(false);
-  
-  useEffect(() => {
-    if (onSandboxToggle) onSandboxToggle(isSandbox);
-  }, [isSandbox, onSandboxToggle]);
+function cityCenter(pulse: CityPulse): [number, number] {
+  if (pulse.cityIdentity?.lat && pulse.cityIdentity?.lon) {
+    return [pulse.cityIdentity.lon, pulse.cityIdentity.lat];
+  }
+  const list = pulseSeeds(pulse);
+  if (list.length === 0) return [-73.94, 40.72];
+  const lat = list.reduce((s, n) => s + n.lat, 0) / list.length;
+  const lon = list.reduce((s, n) => s + n.lon, 0) / list.length;
+  return [lon, lat];
+}
 
+
+export function CityMap({
+  pulse,
+  theme,
+  highlightedNeighborhoods,
+  onSelectNeighborhood,
+  forecastPulse,
+  showForecast = false,
+  onToggleForecast,
+  onSandboxToggle,
+  onSandboxImpact,
+}: CityMapProps) {
+  const [isSandbox, setIsSandbox] = useState(false);
   const [sandboxPulse, setSandboxPulse] = useState<CityPulse>(pulse);
   const [units, setUnits] = useState<{ id: string; type: string; lon: number; lat: number }[]>([]);
   const markersRef = useRef<Record<string, mapboxgl.Marker>>({});
 
+  useEffect(() => {
+    if (onSandboxToggle) onSandboxToggle(isSandbox);
+  }, [isSandbox, onSandboxToggle]);
+
   const activePulse = isSandbox ? sandboxPulse : (showForecast && forecastPulse ? forecastPulse : pulse);
+  const labels = activePulse.boroughLabels || {};
 
   useEffect(() => {
     if (isSandbox) {
       const newPulse = JSON.parse(JSON.stringify(pulse)) as CityPulse;
       let totalImpact = 0;
-      
-      units.forEach(unit => {
-        const resource = RESOURCES.find(r => r.id === unit.type);
+      const all = pulseSeeds(pulse);
+
+      units.forEach((unit) => {
+        const resource = RESOURCES.find((r) => r.id === unit.type);
         if (!resource) return;
 
-        NEIGHBORHOODS.forEach(n => {
+        all.forEach((n) => {
           const dx = n.lon - unit.lon;
           const dy = n.lat - unit.lat;
-          const dist = Math.sqrt(dx*dx + dy*dy);
-          
-          if (dist < 0.12) { // Increased radius for broad impact (approx 7-8 miles)
-            const neighbor = newPulse.neighborhoods[n.name];
-            if (neighbor) {
-              const hasAffinity = resource.affinity.some(a => a.toLowerCase().includes(neighbor.topComplaint.toLowerCase()));
-              const multiplier = hasAffinity ? 1.8 : 0.6; // 80% bonus for matching resource to issue
-              const distanceFactor = Math.max(0.2, 1 - (dist / 0.12)); // Closer = more impact
-              
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (dist < 0.12) {
+            const target = newPulse.neighborhoods[n.name];
+            if (target) {
+              const hasAffinity = resource.affinity.some((a) => a.toLowerCase().includes(target.topComplaint.toLowerCase()));
+              const multiplier = hasAffinity ? 1.8 : 0.6;
+              const distanceFactor = Math.max(0.2, 1 - dist / 0.12);
               const reduction = Math.round(resource.reduction * multiplier * distanceFactor);
-              neighbor.stress = Math.max(2, neighbor.stress - reduction);
+              target.stress = Math.max(2, target.stress - reduction);
               totalImpact += reduction;
             }
           }
         });
       });
 
-      
       if (totalImpact > 0 && onSandboxImpact) {
         onSandboxImpact(`PROJECTED RECOVERY: ${totalImpact} points of systemic stress stabilized.`);
       }
@@ -134,43 +157,68 @@ export function CityMap({ pulse, theme, highlightedNeighborhoods, onSelectNeighb
     }
   }, [units, isSandbox, pulse]);
 
+  useEffect(() => {
+    if (!isSandbox) return;
+    Object.values(markersRef.current).forEach((m) => m.remove());
+    markersRef.current = {};
+    setUnits([]);
+  }, [pulse.cityId]);
+
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const mapToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
   const sortedNeighborhoods = useMemo(
-    () =>
-      [...NEIGHBORHOODS].sort((a, b) => {
-        const left = activePulse.neighborhoods[a.name]?.stress ?? 0;
-        const right = activePulse.neighborhoods[b.name]?.stress ?? 0;
-        return right - left;
-      }),
+    () => pulseSeeds(activePulse).sort((a, b) => b.stress - a.stress),
     [activePulse],
   );
-
-  const fallbackNeighborhood = {
-    stress: 0,
-    topComplaint: 'No live data yet',
-    topIssues: [],
-    anomaly: false,
-  };
 
   useEffect(() => {
     if (!mapToken || !mapContainerRef.current || mapRef.current) return;
 
     mapboxgl.accessToken = mapToken;
+    const isWorld = pulse.cityId === 'world';
+    const [lon, lat] = cityCenter(pulse);
+    
     const map = new mapboxgl.Map({
       container: mapContainerRef.current,
       style: theme === 'dark' ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/light-v10',
-      center: [-73.94, 40.72],
-      zoom: 10.2,
-      pitch: 20,
+      center: [lon, lat],
+      zoom: isWorld ? 1.5 : 10.4,
+      pitch: isWorld ? 0 : 20,
+      projection: 'globe' as any,
       attributionControl: false,
     });
 
+
+
     mapRef.current = map;
 
-    map.on('load', () => {
+      map.on('style.load', () => {
+        map.setFog({
+          color: theme === 'dark' ? 'rgb(10, 10, 10)' : 'rgb(240, 240, 240)',
+          'high-color': theme === 'dark' ? 'rgb(20, 20, 20)' : 'rgb(255, 255, 255)',
+          'horizon-blend': 0.02,
+          'space-color': 'rgb(0, 0, 0)',
+          'star-intensity': 0.15
+        });
+
+        if (isWorld) {
+          let lastTime = 0;
+          const rotate = (time: number) => {
+            if (!mapRef.current || pulse.cityId !== 'world') return;
+            const dt = time - lastTime;
+            lastTime = time;
+            const center = mapRef.current.getCenter();
+            center.lng += 0.005 * (dt || 16);
+            mapRef.current.setCenter(center);
+            requestAnimationFrame(rotate);
+          };
+          requestAnimationFrame(rotate);
+        }
+      });
+
+      map.on('load', () => {
       map.addSource('neighborhood-points', {
         type: 'geojson',
         data: buildNeighborhoodGeojson(activePulse),
@@ -246,12 +294,25 @@ export function CityMap({ pulse, theme, highlightedNeighborhoods, onSelectNeighb
       });
     });
 
-    mapRef.current = map;
     return () => {
       map.remove();
       mapRef.current = null;
     };
-  }, [mapToken, pulse, theme]);
+  }, [mapToken, theme]);
+
+  // When the city changes, recenter and update the map data
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const isWorld = pulse.cityId === 'world';
+    const [lon, lat] = cityCenter(pulse);
+    
+    if (isWorld) {
+      map.flyTo({ center: [lon, lat], zoom: 1.5, pitch: 0, speed: 1.2, essential: true });
+    } else {
+      map.flyTo({ center: [lon, lat], zoom: 10.4, pitch: 20, speed: 1.2, curve: 1.4, essential: true });
+    }
+  }, [pulse.cityId]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -268,7 +329,7 @@ export function CityMap({ pulse, theme, highlightedNeighborhoods, onSelectNeighb
     const map = mapRef.current;
     if (!map || highlightedNeighborhoods.length === 0) return;
     const firstMention = highlightedNeighborhoods[0];
-    const target = NEIGHBORHOODS.find((n) => n.name === firstMention);
+    const target = pulseSeeds(activePulse).find((n) => n.name === firstMention);
     if (!target) return;
 
     map.flyTo({
@@ -278,14 +339,14 @@ export function CityMap({ pulse, theme, highlightedNeighborhoods, onSelectNeighb
       curve: 1.4,
       essential: true,
     });
-  }, [highlightedNeighborhoods]);
+  }, [highlightedNeighborhoods, activePulse]);
 
   return (
     <section className="mapShell" aria-label="Live city pulse map">
       <div className="mapHeader">
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <span>{isSandbox ? 'SANDBOX_MODE' : (showForecast ? 'T+24H FORECAST' : 'LIVE CITY MAP')}</span>
-          <button 
+          <button
             className={`sandboxToggle ${isSandbox ? 'active' : ''}`}
             onClick={() => {
               const next = !isSandbox;
@@ -296,9 +357,9 @@ export function CityMap({ pulse, theme, highlightedNeighborhoods, onSelectNeighb
               fontSize: '0.6rem',
               padding: '2px 8px',
               borderRadius: '3px',
-              border: isSandbox ? '1px solid #ccff00' : '1px solid rgba(255,255,255,0.2)',
+              border: isSandbox ? '1px solid var(--accent)' : '1px solid rgba(255,255,255,0.2)',
               background: isSandbox ? 'rgba(204,255,0,0.15)' : 'transparent',
-              color: isSandbox ? '#ccff00' : 'rgba(255,255,255,0.4)',
+              color: isSandbox ? 'var(--accent)' : 'rgba(255,255,255,0.4)',
               cursor: 'pointer',
               letterSpacing: '0.08em',
               fontWeight: 700,
@@ -307,7 +368,7 @@ export function CityMap({ pulse, theme, highlightedNeighborhoods, onSelectNeighb
             {isSandbox ? 'EXIT_SANDBOX' : 'ENTER_SANDBOX'}
           </button>
         </div>
-        
+
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <span style={{ fontSize: '0.65rem', opacity: 0.6 }}>{activePulse.activeEvents[0] ?? 'Quiet skyline'}</span>
           {!isSandbox && onToggleForecast && (
@@ -333,13 +394,31 @@ export function CityMap({ pulse, theme, highlightedNeighborhoods, onSelectNeighb
 
       <div style={{ position: 'relative' }}>
         {mapToken ? <div ref={mapContainerRef} className="mapCanvas" /> : null}
-        
+
+        {sortedNeighborhoods.length === 0 && (
+          <div className="mapLoadingOverlay">
+            <div className="neuralScanner" />
+            <div className="loadingContent">
+              <div className="loadingBrand">
+                <span className="loadingPulse" />
+                NEURAL_GRID_SYNC
+              </div>
+              <div className="loadingStatus">
+                Scanning geographic nodes...
+              </div>
+              <div className="loadingProgressBar">
+                <div className="loadingProgressFill" />
+              </div>
+            </div>
+          </div>
+        )}
+
         {isSandbox && (
           <div className="sandboxPalette">
             <div className="sandboxPaletteTitle">RESOURCE_PALETTE</div>
             <div className="sandboxPaletteGrid">
-              {RESOURCES.map(r => (
-                <button 
+              {RESOURCES.map((r) => (
+                <button
                   key={r.id}
                   className="resourceBtn"
                   onClick={() => {
@@ -347,18 +426,18 @@ export function CityMap({ pulse, theme, highlightedNeighborhoods, onSelectNeighb
                     const center = mapRef.current.getCenter();
                     const id = Math.random().toString(36).substr(2, 9);
                     const newUnit = { id, type: r.id, lon: center.lng, lat: center.lat };
-                    
+
                     const marker = new mapboxgl.Marker({ draggable: true, element: createResourceEl(r.icon) })
                       .setLngLat([newUnit.lon, newUnit.lat])
                       .addTo(mapRef.current);
-                      
+
                     marker.on('dragend', () => {
                       const lngLat = marker.getLngLat();
-                      setUnits(prev => prev.map(u => u.id === id ? { ...u, lon: lngLat.lng, lat: lngLat.lat } : u));
+                      setUnits((prev) => prev.map((u) => (u.id === id ? { ...u, lon: lngLat.lng, lat: lngLat.lat } : u)));
                     });
 
                     markersRef.current[id] = marker;
-                    setUnits(prev => [...prev, newUnit]);
+                    setUnits((prev) => [...prev, newUnit]);
                   }}
                 >
                   <span className="resourceIcon">{r.icon}</span>
@@ -367,10 +446,10 @@ export function CityMap({ pulse, theme, highlightedNeighborhoods, onSelectNeighb
               ))}
             </div>
             {units.length > 0 && (
-              <button 
+              <button
                 className="flushBtn"
                 onClick={() => {
-                  Object.values(markersRef.current).forEach(m => m.remove());
+                  Object.values(markersRef.current).forEach((m) => m.remove());
                   markersRef.current = {};
                   setUnits([]);
                 }}
@@ -384,43 +463,43 @@ export function CityMap({ pulse, theme, highlightedNeighborhoods, onSelectNeighb
 
       {!mapToken ? <div className="mapUnavailable">Set NEXT_PUBLIC_MAPBOX_TOKEN in .env to enable the realtime map.</div> : null}
       <div className="mapGrid">
-        {sortedNeighborhoods.map((seed) => {
-          const neighborhood = activePulse.neighborhoods[seed.name] ?? fallbackNeighborhood;
-          const isHighlighted = highlightedNeighborhoods.includes(seed.name);
-          const stressClass = neighborhood.stress < 31 ? 'calm' : neighborhood.stress < 61 ? 'tense' : 'stressed';
+        {sortedNeighborhoods.map((n) => {
+          const isHighlighted = highlightedNeighborhoods.includes(n.name);
+          const stressClass = n.stress < 31 ? 'calm' : n.stress < 61 ? 'tense' : 'stressed';
+          const districtLabel = labels[n.borough] ?? n.borough;
 
           return (
-            <article 
-              key={seed.name} 
-              id={`neighborhood-${seed.name}`}
+            <article
+              key={n.name}
+              id={`neighborhood-${n.name}`}
               className={`neighborhoodCard ${stressClass} ${isHighlighted ? 'highlighted' : ''}`}
-              onClick={() => onSelectNeighborhood(seed.name)}
+              onClick={() => onSelectNeighborhood(n.name)}
             >
-              <div className="neighborhoodName">{seed.name}</div>
-              <div className="neighborhoodBorough">{BOROUGH_LABELS[seed.borough]}</div>
+              <div className="neighborhoodName">{n.name}</div>
+              <div className="neighborhoodBorough">{districtLabel}</div>
               <div className="neighborhoodMetrics">
-                <span>{neighborhood.stress}/100</span>
-                <span>{neighborhood.topComplaint}</span>
+                <span>{n.stress}/100</span>
+                <span>{n.topComplaint}</span>
               </div>
               <div className="hoverIssues">
-                {(neighborhood.topIssues || []).map((issue, idx) => (
+                {(n.topIssues || []).map((issue, idx) => (
                   <div key={idx} className="hoverIssueItem">• {issue}</div>
                 ))}
               </div>
 
-              {neighborhood.anomaly && !showForecast ? <span className="anomalyFlag">ANOMALY</span> : null}
-              {showForecast && neighborhood.forecastReason ? (
-                <span 
-                  className="anomalyFlag" 
-                  style={{ 
-                    background: 'rgba(255,221,87,0.15)', 
-                    color: '#ffdd57', 
+              {n.anomaly && !showForecast ? <span className="anomalyFlag">ANOMALY</span> : null}
+              {showForecast && n.forecastReason ? (
+                <span
+                  className="anomalyFlag"
+                  style={{
+                    background: 'rgba(255,221,87,0.15)',
+                    color: '#ffdd57',
                     borderColor: 'rgba(255,221,87,0.4)',
                     fontSize: '0.45rem',
-                    letterSpacing: '0.15em'
+                    letterSpacing: '0.15em',
                   }}
                 >
-                  {neighborhood.forecastReason}
+                  {n.forecastReason}
                 </span>
               ) : (showForecast ? (
                 <span className="anomalyFlag" style={{ background: 'rgba(255,221,87,0.15)', color: '#ffdd57', borderColor: 'rgba(255,221,87,0.4)' }}>FORECAST</span>

@@ -1,6 +1,6 @@
-import { NEIGHBORHOODS } from '@/lib/constants/neighborhoods';
+import type { CityPulse } from '@/lib/types';
 
-export function extractMentionedNeighborhoods(text: string): string[] {
+export function extractMentionedNeighborhoods(text: string, pulse: CityPulse): string[] {
   const lowerText = text.toLowerCase();
-  return NEIGHBORHOODS.filter((neighborhood) => lowerText.includes(neighborhood.name.toLowerCase())).map((neighborhood) => neighborhood.name);
+  return Object.keys(pulse.neighborhoods).filter((name) => lowerText.includes(name.toLowerCase()));
 }
