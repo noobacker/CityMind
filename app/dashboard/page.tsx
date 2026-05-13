@@ -19,7 +19,17 @@ function buildFallbackPulse(cityName: string, cityId: string, lat?: number, lon?
   return {
     cityId,
     cityName,
-    cityIdentity: lat && lon ? { id: cityId, name: cityName, lat, lon, country: '', countryCode: '', flag: '🌍' } : undefined,
+    cityIdentity: lat && lon ? { 
+      id: cityId, 
+      name: cityName, 
+      lat, 
+      lon, 
+      country: '', 
+      countryCode: '', 
+      flag: '🌍',
+      timezone: 'UTC',
+      tempUnit: 'F'
+    } : undefined,
     timestamp: new Date().toISOString(),
     overallStress: 0,
     mood: 'calm',
@@ -37,7 +47,7 @@ function buildFallbackPulse(cityName: string, cityId: string, lat?: number, lon?
 
 
 export default function DashboardPage() {
-  const { city, apiQuery, isReady } = useCity();
+  const { city, setCity, apiQuery, isReady } = useCity();
   const [pulse, setPulse] = useState<CityPulse>(() => buildFallbackPulse(city.name, city.id, city.lat, city.lon));
   const [vitals, setVitals] = useState<VitalsPayload>(() => {
     const fallback = buildFallbackPulse(city.name, city.id, city.lat, city.lon);
@@ -62,7 +72,21 @@ export default function DashboardPage() {
   const [showForecast, setShowForecast] = useState(false);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const prev = window.history.scrollRestoration;
+    window.history.scrollRestoration = 'manual';
     window.scrollTo(0, 0);
+    const r1 = requestAnimationFrame(() => window.scrollTo(0, 0));
+    const t1 = window.setTimeout(() => window.scrollTo(0, 0), 100);
+    const t2 = window.setTimeout(() => window.scrollTo(0, 0), 300);
+    const t3 = window.setTimeout(() => window.scrollTo(0, 0), 600);
+    return () => {
+      cancelAnimationFrame(r1);
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+      window.clearTimeout(t3);
+      window.history.scrollRestoration = prev;
+    };
   }, []);
 
   useEffect(() => {
@@ -84,6 +108,15 @@ export default function DashboardPage() {
         if (!response.ok || !active) return;
         const data = (await response.json()) as CityPulse;
         setPulse((current) => ({ ...current, ...data }));
+
+        // Sync the resolved city name back to the global state if it was a generic detection
+        if (data.cityName && data.cityName !== city.name && city.isCustom) {
+          setCity({
+            ...city,
+            name: data.cityName,
+            displayName: data.cityName
+          });
+        }
 
         const neighborhoodList = Object.entries(data.neighborhoods);
         const spike = neighborhoodList.find(([, stats]) => stats.stress > 80);
@@ -162,10 +195,6 @@ export default function DashboardPage() {
         </div>
 
         <div className="visualCol">
-          <div className="cityAvatarStage" style={{ height: '240px', width: '100%', position: 'relative' }}>
-            <CityAvatar pulse={pulse} theme={theme} onFocusNeighborhoodsChange={setHighlightedNeighborhoods} />
-          </div>
-
           <CityMap
             pulse={pulse}
             theme={theme}

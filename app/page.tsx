@@ -23,6 +23,20 @@ export default function LandingPage() {
   const [liveVitals, setLiveVitals] = useState<LiveVitals | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [isLocating, setIsLocating] = useState(false);
+
+  const handleDetectLocation = () => {
+    if (!navigator.geolocation) return;
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        // The CityProvider expects a 'city' param starting with 'custom_' to trigger the custom logic
+        window.location.href = `/dashboard?city=custom_detect&lat=${latitude}&lon=${longitude}&name=Detected%20Location&country=Live&countryCode=LOC`;
+      },
+      () => setIsLocating(false)
+    );
+  };
 
   useEffect(() => {
     if (!isReady) return;
@@ -76,7 +90,19 @@ export default function LandingPage() {
       <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 backdrop-blur-md border-b border-white/5 font-mono text-[10px] uppercase tracking-[0.2em] text-[#555]" style={{ background: 'var(--panel)', borderBottomColor: 'var(--panel-border)' }}>
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 bg-[var(--accent)] rounded-full animate-pulse" />
+            <svg width="24" height="24" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M16 2L29 9.5V22.5L16 30L3 22.5V9.5L16 2Z" stroke="var(--accent)" strokeWidth="2" strokeLinejoin="round"/>
+              <path d="M16 2V30" stroke="var(--accent)" strokeWidth="1" strokeOpacity="0.5"/>
+              <path d="M3 9.5L29 22.5" stroke="var(--accent)" strokeWidth="1" strokeOpacity="0.5"/>
+              <path d="M29 9.5L3 22.5" stroke="var(--accent)" strokeWidth="1" strokeOpacity="0.5"/>
+              <circle cx="16" cy="16" r="4" fill="var(--accent)"/>
+              <circle cx="16" cy="2" r="1.5" fill="var(--accent)"/>
+              <circle cx="29" cy="9.5" r="1.5" fill="var(--accent)"/>
+              <circle cx="29" cy="22.5" r="1.5" fill="var(--accent)"/>
+              <circle cx="16" cy="30" r="1.5" fill="var(--accent)"/>
+              <circle cx="3" cy="22.5" r="1.5" fill="var(--accent)"/>
+              <circle cx="3" cy="9.5" r="1.5" fill="var(--accent)"/>
+            </svg>
             <span style={{ color: 'var(--text)' }} className="font-bold">CITYMIND / KERNEL</span>
           </div>
           <div className="hidden sm:flex">
@@ -86,6 +112,8 @@ export default function LandingPage() {
 
         <div className="hidden md:flex items-center gap-10">
           <Link href={`/dashboard?${apiQuery}`} className="transition-colors" style={{ color: theme === 'dark' ? '#555' : '#333' }}>Topology</Link>
+          <a href="#mission" className="transition-colors" style={{ color: theme === 'dark' ? '#555' : '#333' }}>Mission</a>
+          <a href="#genesis" className="transition-colors" style={{ color: theme === 'dark' ? '#555' : '#333' }}>Genesis</a>
           <Link href="/docs" className="transition-colors" style={{ color: theme === 'dark' ? '#555' : '#333' }}>Docs</Link>
         </div>
 
@@ -148,7 +176,6 @@ export default function LandingPage() {
             </motion.div>
           )}
 
-
           <motion.p
             key={`p-${city.id}`}
             initial={{ opacity: 0, y: 20 }}
@@ -158,6 +185,7 @@ export default function LandingPage() {
             style={{ color: theme === 'dark' ? '#777' : '#222' }}
           >
             Non-living matter. Infinite intelligence. The steel and stone of {cityName} — and any city on Earth — have found a voice to think, talk, and feel.
+
           </motion.p>
 
           <motion.div
@@ -172,23 +200,43 @@ export default function LandingPage() {
             >
               [ CONNECT TO {cityNameUpper} ] →
             </Link>
-            <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#555]">
-              or press <kbd className="border border-white/10 px-1.5 py-0.5 rounded text-[var(--accent)]">⌘K</kbd> to switch city
+            <button
+              onClick={handleDetectLocation}
+              disabled={isLocating}
+              className="px-8 py-3 border font-mono text-xs uppercase tracking-widest transition-all duration-300"
+              style={{ 
+                borderColor: 'var(--panel-border)', 
+                color: 'var(--text-muted)',
+                background: 'rgba(255, 255, 255, 0.05)'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.borderColor = 'var(--accent)';
+                e.currentTarget.style.color = 'var(--accent)';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.borderColor = 'var(--panel-border)';
+                e.currentTarget.style.color = 'var(--text-muted)';
+              }}
+            >
+              {isLocating ? '[ LOCATING... ]' : '[ DETECT_CURRENT_LOCATION ]'}
+            </button>
+            <span className="font-mono text-[10px] uppercase tracking-[0.2em]" style={{ color: 'var(--text-muted)' }}>
+              or press <kbd className="border px-1.5 py-0.5 rounded" style={{ borderColor: 'var(--panel-border)', color: 'var(--accent)' }}>⌘K</kbd> to switch city
             </span>
           </motion.div>
 
-          <div className="mt-12 grid grid-cols-3 gap-8 border-t border-white/5 pt-10 max-w-xl">
+          <div className="mt-12 grid grid-cols-3 gap-8 border-t pt-10 max-w-xl" style={{ borderTopColor: 'var(--panel-border)' }}>
             <div>
               <div className="text-3xl font-bold leading-none" style={{ color: 'var(--text)' }}>
                 {liveVitals ? (liveVitals.overallStress / 5).toFixed(1) : '12.4'}
               </div>
-              <div className="mt-2 font-mono text-[10px] uppercase tracking-widest text-[#444]">MS P99</div>
+              <div className="mt-2 font-mono text-[10px] uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>MS P99</div>
             </div>
             <div>
               <div className="text-3xl font-bold leading-none" style={{ color: 'var(--text)' }}>
                 {neighborhoodCount > 0 ? `${neighborhoodCount}` : '50K'}
               </div>
-              <div className="mt-2 font-mono text-[10px] uppercase tracking-widest text-[#444]">
+              <div className="mt-2 font-mono text-[10px] uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>
                 {neighborhoodCount > 0 ? 'NODES' : 'EVENTS/S'}
               </div>
             </div>
@@ -196,7 +244,7 @@ export default function LandingPage() {
               <div className="text-3xl font-bold leading-none" style={{ color: 'var(--text)' }}>
                 {districtCount > 0 ? districtCount : 5}
               </div>
-              <div className="mt-2 font-mono text-[10px] uppercase tracking-widest text-[#444]">DISTRICTS</div>
+              <div className="mt-2 font-mono text-[10px] uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>DISTRICTS</div>
             </div>
           </div>
         </section>
@@ -205,12 +253,12 @@ export default function LandingPage() {
           <NeuralEdgeMap pulse={pulse} theme={theme} />
 
           <div className="absolute top-10 right-10 font-mono text-[10px] uppercase tracking-[0.2em] z-20 text-right">
-            <div style={{ color: theme === 'dark' ? '#444' : '#222' }}>{cityNameUpper}.NEURAL.GRID • LIVE</div>
+            <div style={{ color: 'var(--text)' }}>{cityNameUpper}.NEURAL.GRID • LIVE</div>
             <div className="text-[var(--accent)]">
               {neighborhoodCount > 0 ? `${neighborhoodCount} NODES` : 'BOOTING NODES'} • {districtCount > 0 ? `${districtCount} DISTRICTS` : 'SYNCING'}
             </div>
             {liveVitals && (
-              <div style={{ color: theme === 'dark' ? '#666' : '#333' }} className="mt-1">
+              <div className="mt-1" style={{ color: 'var(--text-muted)' }}>
                 {liveVitals.moodEmoji} {liveVitals.mood.toUpperCase()} · {liveVitals.weather.temp}°{tempUnit}
               </div>
             )}
@@ -218,30 +266,62 @@ export default function LandingPage() {
         </section>
       </div>
 
-      <footer className="fixed bottom-0 left-0 right-0 px-6 py-6 z-50 flex items-end justify-between pointer-events-none">
-        <div>
-          <div className="font-mono text-[9px] uppercase tracking-widest text-[#333] mb-2">PACKET TRACE - TAIL</div>
+      <section id="mission" className="px-8 md:px-24 py-32 border-t bg-[var(--bg)]" style={{ borderTopColor: 'var(--panel-border)' }}>
+        <div className="max-w-4xl">
+          <div className="flex items-center gap-3 mb-10 text-[var(--accent)] font-mono text-[10px] uppercase tracking-[0.4em]">
+            <span className="w-1.5 h-1.5 bg-[var(--accent)]" />
+            <span>01 // THE_CONCEPT</span>
+          </div>
+          <h2 className="font-[var(--font-heading)] text-5xl md:text-7xl font-extrabold uppercase leading-[0.9] mb-12" style={{ color: 'var(--text)' }}>
+            What is <span className="text-[var(--accent)]">CityMind?</span>
+          </h2>
+          <p className="text-xl md:text-2xl leading-relaxed font-medium" style={{ color: 'var(--text-muted)' }}>
+            CityMind is a real-time **Planetary Urban Intelligence Engine** that transforms raw municipal data into a living, queryable nervous system. By scaling beyond borders and bridging real-time global streams with empathetic AI, we give our cities a voice—allowing researchers, urban planners, and citizens to communicate with the steel, stone, and pulse of any urban environment on Earth.
+
+          </p>
+        </div>
+      </section>
+
+      <section id="genesis" className="px-8 md:px-24 py-32 border-t bg-[var(--bg)]" style={{ borderTopColor: 'var(--panel-border)' }}>
+        <div className="max-w-4xl ml-auto text-right">
+          <div className="flex items-center justify-end gap-3 mb-10 text-[var(--accent)] font-mono text-[10px] uppercase tracking-[0.4em]">
+            <span>02 // THE_PURPOSE</span>
+            <span className="w-1.5 h-1.5 bg-[var(--accent)]" />
+          </div>
+          <h2 className="font-[var(--font-heading)] text-5xl md:text-7xl font-extrabold uppercase leading-[0.9] mb-12" style={{ color: 'var(--text)' }}>
+            Why was it <span className="text-[var(--accent)]">built?</span>
+          </h2>
+          <p className="text-xl md:text-2xl leading-relaxed font-medium" style={{ color: 'var(--text-muted)' }}>
+            Standard city dashboards provide data, but they lack context. CityMind was built to transform cold metrics—like stress levels, congestion, and energy consumption—into empathetic, actionable narratives. We built this to bridge the gap between "what" is happening in a city and "why" it matters to the people living within it.
+          </p>
+        </div>
+      </section>
+
+      <footer className="px-8 py-16 border-t border-white/5 bg-[var(--bg)] flex flex-col md:flex-row items-center justify-between gap-12">
+        <div className="flex flex-col gap-6">
+          <div className="font-mono text-[9px] uppercase tracking-widest text-[#333]">PACKET TRACE - TAIL</div>
           <div className="flex flex-col gap-1">
             {logs.map((log, i) => (
-              <div key={i} className="font-mono text-[10px] text-[#666]" style={{ opacity: 1 - i * 0.2 }}>
+              <div key={i} className="font-mono text-[10px] text-[#555]" style={{ opacity: 1 - i * 0.2 }}>
                 {log}
               </div>
             ))}
           </div>
         </div>
 
-        <div className="pointer-events-auto flex items-center gap-8 font-mono text-[10px] uppercase tracking-[0.2em] text-[#444]">
+        <div className="flex flex-col md:flex-row items-center gap-12 font-mono text-[11px] uppercase tracking-[0.3em]" style={{ color: 'var(--text)' }}>
           <a
             href="https://github.com/noobacker/CityMind"
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:text-[var(--accent)] transition-colors"
+            className="hover:text-[var(--accent)] hover:border-[var(--accent)] transition-all border-b-2 pb-1 font-black"
+            style={{ borderColor: 'var(--panel-border)' }}
           >
             [ SOURCE_CODE ]
           </a>
-          <div className="flex flex-col items-end">
-            <span className="text-[#666]">BY NOOBACKER</span>
-            <span className="mt-1 text-[8px] opacity-40">© {new Date().getFullYear()} CITYMIND_KERNEL</span>
+          <div className="flex flex-col items-center md:items-end">
+            <span className="font-black text-[13px] tracking-[0.4em] drop-shadow-[0_0_15px_var(--accent-glow)]" style={{ color: 'var(--text)' }}>BY NOOBACKER</span>
+            <span className="mt-1 text-[9px] opacity-70 font-bold tracking-[0.2em]">© {new Date().getFullYear()} CITYMIND_KERNEL</span>
           </div>
         </div>
       </footer>

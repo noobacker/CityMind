@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
+import Link from 'next/link';
 
 import type { FeatureCollection, Point } from 'geojson';
 import type { CityPulse, ForecastPulse, NeighborhoodPulse } from '@/lib/types';
@@ -55,6 +56,9 @@ const RESOURCES = [
   { id: 'sanitation', label: 'Sanitation', icon: '🧹', reduction: 18, affinity: ['Dirty Conditions', 'Rodent', 'Garbage Collection', 'Sidewalk Condition'] },
   { id: 'emt', label: 'EMS Response', icon: '🚑', reduction: 22, affinity: ['Homeless Encampment', 'Heatwave', 'Public Safety'] },
   { id: 'transit', label: 'Transit Repair', icon: '🛠️', reduction: 15, affinity: ['Water System', 'Street Light Condition', 'Power Outage', 'Traffic Signal'] },
+  { id: 'energy', label: 'Energy Grid', icon: '⚡', reduction: 20, affinity: ['Power Outage', 'Heatwave', 'Elevator', 'Electric'] },
+  { id: 'eco', label: 'Eco-Scrubber', icon: '🌫️', reduction: 25, affinity: ['Air Quality', 'Smoke', 'Odor', 'Asbestos'] },
+  { id: 'social', label: 'Support Van', icon: '🫂', reduction: 15, affinity: ['Homeless Encampment', 'Mental Health', 'Noise - Residential'] },
 ];
 
 function pulseSeeds(pulse: CityPulse): NeighborhoodPulse[] {
@@ -108,9 +112,29 @@ export function CityMap({
   onSandboxImpact,
 }: CityMapProps) {
   const [isSandbox, setIsSandbox] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
   const [sandboxPulse, setSandboxPulse] = useState<CityPulse>(pulse);
   const [units, setUnits] = useState<{ id: string; type: string; lon: number; lat: number }[]>([]);
   const markersRef = useRef<Record<string, mapboxgl.Marker>>({});
+  const pulseRef = useRef(pulse);
+  const isInteractingRef = useRef(false);
+
+  const resetView = () => {
+    if (!mapRef.current) return;
+    const isWorld = pulse.cityId === 'world';
+    const [lon, lat] = cityCenter(pulse);
+    mapRef.current.flyTo({
+      center: [lon, lat],
+      zoom: isWorld ? 1.5 : 10.4,
+      pitch: isWorld ? 0 : 20,
+      bearing: 0,
+      essential: true
+    });
+  };
+
+  useEffect(() => {
+    pulseRef.current = pulse;
+  }, [pulse]);
 
   useEffect(() => {
     if (onSandboxToggle) onSandboxToggle(isSandbox);
@@ -143,6 +167,13 @@ export function CityMap({
               const reduction = Math.round(resource.reduction * multiplier * distanceFactor);
               target.stress = Math.max(2, target.stress - reduction);
               totalImpact += reduction;
+
+              // Track impact source
+              if (!target.socialVibe) target.socialVibe = ''; // Reuse socialVibe for impact display in sandbox
+              const impactInfo = `${resource.icon} ${resource.label} (-${reduction})`;
+              if (!target.socialVibe.includes(impactInfo)) {
+                target.socialVibe = target.socialVibe ? `${target.socialVibe}, ${impactInfo}` : impactInfo;
+              }
             }
           }
         });
@@ -158,11 +189,18 @@ export function CityMap({
   }, [units, isSandbox, pulse]);
 
   useEffect(() => {
-    if (!isSandbox) return;
     Object.values(markersRef.current).forEach((m) => m.remove());
     markersRef.current = {};
     setUnits([]);
   }, [pulse.cityId]);
+
+  useEffect(() => {
+    if (!isSandbox) {
+      Object.values(markersRef.current).forEach((m) => m.remove());
+      markersRef.current = {};
+      setUnits([]);
+    }
+  }, [isSandbox]);
 
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -206,7 +244,9 @@ export function CityMap({
         if (isWorld) {
           let lastTime = 0;
           const rotate = (time: number) => {
-            if (!mapRef.current || pulse.cityId !== 'world') return;
+            if (!mapRef.current || pulseRef.current.cityId !== 'world' || isInteractingRef.current) {
+              return;
+            }
             const dt = time - lastTime;
             lastTime = time;
             const center = mapRef.current.getCenter();
@@ -216,6 +256,18 @@ export function CityMap({
           };
           requestAnimationFrame(rotate);
         }
+      });
+
+      map.on('movestart', () => {
+        isInteractingRef.current = true;
+      });
+
+      map.on('mousedown', () => {
+        isInteractingRef.current = true;
+      });
+
+      map.on('touchstart', () => {
+        isInteractingRef.current = true;
       });
 
       map.on('load', () => {
@@ -344,119 +396,164 @@ export function CityMap({
   return (
     <section className="mapShell" aria-label="Live city pulse map">
       <div className="mapHeader">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <span>{isSandbox ? 'SANDBOX_MODE' : (showForecast ? 'T+24H FORECAST' : 'LIVE CITY MAP')}</span>
+        <div className="headerLeft">
+          <span className="gridStatus">
+            {isSandbox ? 'SIMULATION_ENVIRONMENT' : (showForecast ? 'PREDICTIVE_PROJECTION' : 'NEURAL_GEOSPATIAL_GRID')}
+          </span>
           <button
-            className={`sandboxToggle ${isSandbox ? 'active' : ''}`}
+            className={`mapActionBtn sandboxToggle ${isSandbox ? 'active' : ''}`}
             onClick={() => {
               const next = !isSandbox;
               setIsSandbox(next);
               if (onSandboxToggle) onSandboxToggle(next);
             }}
-            style={{
-              fontSize: '0.6rem',
-              padding: '2px 8px',
-              borderRadius: '3px',
-              border: isSandbox ? '1px solid var(--accent)' : '1px solid rgba(255,255,255,0.2)',
-              background: isSandbox ? 'rgba(204,255,0,0.15)' : 'transparent',
-              color: isSandbox ? 'var(--accent)' : 'rgba(255,255,255,0.4)',
-              cursor: 'pointer',
-              letterSpacing: '0.08em',
-              fontWeight: 700,
-            }}
           >
-            {isSandbox ? 'EXIT_SANDBOX' : 'ENTER_SANDBOX'}
+            {isSandbox ? 'CLOSE_SIMULATION' : 'OPEN_SANDBOX'}
           </button>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <span style={{ fontSize: '0.65rem', opacity: 0.6 }}>{activePulse.activeEvents[0] ?? 'Quiet skyline'}</span>
+        <div className="headerRight">
+          <span className="eventTicker">{activePulse.activeEvents[0] ?? 'Neural Synchrony Active'}</span>
+          
+          <button className="mapActionBtn resetBtn" onClick={resetView}>
+            RESET_VIEW
+          </button>
+
           {!isSandbox && onToggleForecast && (
             <button
+              className={`mapActionBtn forecastBtn ${showForecast ? 'active' : ''}`}
               onClick={onToggleForecast}
-              style={{
-                fontSize: '0.6rem',
-                padding: '2px 8px',
-                borderRadius: '3px',
-                border: showForecast ? '1px solid #ffdd57' : '1px solid var(--accent)',
-                background: showForecast ? 'rgba(255,221,87,0.15)' : 'transparent',
-                color: showForecast ? '#ffdd57' : 'var(--accent)',
-                cursor: 'pointer',
-                letterSpacing: '0.08em',
-                fontWeight: 700,
-              }}
             >
-              {showForecast ? '◀ NOW' : 'T+24H ▶'}
+              {showForecast ? '◀ REALTIME' : 'FORECAST ▶'}
             </button>
           )}
         </div>
       </div>
 
-      <div style={{ position: 'relative' }}>
+      <div className={`mapCanvasContainer ${isSandbox ? 'sandboxActive' : ''}`}>
         {mapToken ? <div ref={mapContainerRef} className="mapCanvas" /> : null}
+
+        {isSandbox && (
+          <aside className="sandboxSidebar">
+            <div className="sidebarHeader">
+              <div className="sidebarTitle">NEURAL_COMMAND</div>
+              <button className="infoBtn" onClick={() => setShowInfo(!showInfo)}>ⓘ INFO</button>
+            </div>
+
+            {showInfo && (
+              <div className="sandboxInfoBlock">
+                <div className="infoSection">
+                  <strong>Affinity (1.8x)</strong>: Matching specialties provides a massive boost.
+                </div>
+                <div className="infoSection">
+                  <strong>Proximity</strong>: Impact fades toward the 12km radius edge.
+                </div>
+                <div className="infoSection">
+                  <strong>General (0.6x)</strong>: Baseline stabilization.
+                </div>
+              </div>
+            )}
+
+            <div className="sidebarScroll">
+              <div className="resourceGrid">
+                {RESOURCES.map((r) => (
+                  <button
+                    key={r.id}
+                    className="sidebarResourceBtn"
+                    onClick={() => {
+                      if (!mapRef.current) return;
+                      let [baseLon, baseLat] = cityCenter(pulse);
+                      
+                      if (highlightedNeighborhoods.length > 0) {
+                        const target = pulseSeeds(pulse).find((n) => n.name === highlightedNeighborhoods[0]);
+                        if (target) {
+                          baseLon = target.lon;
+                          baseLat = target.lat;
+                        }
+                      }
+
+                      const lon = baseLon + (Math.random() - 0.5) * 0.01;
+                      const lat = baseLat + (Math.random() - 0.5) * 0.01;
+                      const id = Math.random().toString(36).substr(2, 9);
+                      const newUnit = { id, type: r.id, lon, lat };
+
+                      const marker = new mapboxgl.Marker({ draggable: true, element: createResourceEl(r.icon) })
+                        .setLngLat([newUnit.lon, newUnit.lat])
+                        .addTo(mapRef.current);
+
+                      marker.on('dragend', () => {
+                        const lngLat = marker.getLngLat();
+                        setUnits((prev) => prev.map((u) => (u.id === id ? { ...u, lon: lngLat.lng, lat: lngLat.lat } : u)));
+                      });
+
+                      markersRef.current[id] = marker;
+                      setUnits((prev) => [...prev, newUnit]);
+                    }}
+                  >
+                    <span className="resIcon">{r.icon}</span>
+                    <div className="resMeta">
+                      <span className="resName">{r.label}</span>
+                      <span className="resPower">+{r.reduction} BASE_EFF</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {units.length > 0 && (
+              <div className="sidebarFooter">
+                <button
+                  className="sidebarFlushBtn"
+                  onClick={() => {
+                    Object.values(markersRef.current).forEach((m) => m.remove());
+                    markersRef.current = {};
+                    setUnits([]);
+                  }}
+                >
+                  FLUSH_ALL_UNITS ({units.length})
+                </button>
+              </div>
+            )}
+          </aside>
+        )}
 
         {sortedNeighborhoods.length === 0 && (
           <div className="mapLoadingOverlay">
-            <div className="neuralScanner" />
-            <div className="loadingContent">
-              <div className="loadingBrand">
-                <span className="loadingPulse" />
-                NEURAL_GRID_SYNC
-              </div>
-              <div className="loadingStatus">
-                Scanning geographic nodes...
-              </div>
-              <div className="loadingProgressBar">
-                <div className="loadingProgressFill" />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {isSandbox && (
-          <div className="sandboxPalette">
-            <div className="sandboxPaletteTitle">RESOURCE_PALETTE</div>
-            <div className="sandboxPaletteGrid">
-              {RESOURCES.map((r) => (
-                <button
-                  key={r.id}
-                  className="resourceBtn"
-                  onClick={() => {
-                    if (!mapRef.current) return;
-                    const center = mapRef.current.getCenter();
-                    const id = Math.random().toString(36).substr(2, 9);
-                    const newUnit = { id, type: r.id, lon: center.lng, lat: center.lat };
-
-                    const marker = new mapboxgl.Marker({ draggable: true, element: createResourceEl(r.icon) })
-                      .setLngLat([newUnit.lon, newUnit.lat])
-                      .addTo(mapRef.current);
-
-                    marker.on('dragend', () => {
-                      const lngLat = marker.getLngLat();
-                      setUnits((prev) => prev.map((u) => (u.id === id ? { ...u, lon: lngLat.lng, lat: lngLat.lat } : u)));
-                    });
-
-                    markersRef.current[id] = marker;
-                    setUnits((prev) => [...prev, newUnit]);
-                  }}
-                >
-                  <span className="resourceIcon">{r.icon}</span>
-                  <span className="resourceLabel">{r.label}</span>
-                </button>
+            <div className="cyberGrid" />
+            <div className="dataFragments">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className={`fragment f${i+1}`}>0101_SYNC</div>
               ))}
             </div>
-            {units.length > 0 && (
-              <button
-                className="flushBtn"
-                onClick={() => {
-                  Object.values(markersRef.current).forEach((m) => m.remove());
-                  markersRef.current = {};
-                  setUnits([]);
-                }}
-              >
-                Flush Units
-              </button>
-            )}
+            
+            <div className="loadingContent">
+              <div className="scanningHud">
+                <div className="hudRing ring1" />
+                <div className="hudRing ring2" />
+                <div className="hudRing ring3" />
+                <div className="hudCenter">
+                  <div className="pulseCore" />
+                </div>
+              </div>
+
+              <div className="loadingBrand">
+                <span className="brandText">NEURAL_GRID_SYNC</span>
+                <span className="brandDecor">[0x4F_CITY]</span>
+              </div>
+              
+              <div className="loadingStatus">
+                ESTABLISHING_GEOSPATIAL_QUORUM...
+              </div>
+
+              <div className="loadingProgressBar">
+                <div className="loadingProgressFill" />
+                <div className="progressGlow" />
+              </div>
+
+              <div className="loadingMeta">
+                SECURE_LINK // 99.8% STABILITY
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -467,20 +564,41 @@ export function CityMap({
           const isHighlighted = highlightedNeighborhoods.includes(n.name);
           const stressClass = n.stress < 31 ? 'calm' : n.stress < 61 ? 'tense' : 'stressed';
           const districtLabel = labels[n.borough] ?? n.borough;
+          
+          const original = pulse.neighborhoods[n.name];
+          const isStabilized = isSandbox && original && original.stress > n.stress;
 
           return (
             <article
               key={n.name}
               id={`neighborhood-${n.name}`}
-              className={`neighborhoodCard ${stressClass} ${isHighlighted ? 'highlighted' : ''}`}
+              className={`neighborhoodCard ${stressClass} ${isHighlighted ? 'highlighted' : ''} ${isStabilized ? 'stabilized' : ''}`}
               onClick={() => onSelectNeighborhood(n.name)}
             >
               <div className="neighborhoodName">{n.name}</div>
               <div className="neighborhoodBorough">{districtLabel}</div>
+              
+              {isStabilized && (
+                <div className="stabilizationLogic">
+                  <div className="deploymentStatus">AFTER UNIT DEPLOYMENT</div>
+                  <div className="impactBreakdown">
+                    {n.socialVibe?.split(', ').map((imp, i) => (
+                      <span key={i} className="impactSource">{imp}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="neighborhoodMetrics">
-                <span>{n.stress}/100</span>
+                <span>
+                  {n.stress}/100
+                  {isStabilized && (
+                    <span className="stressEarlier"> (earlier: {original.stress})</span>
+                  )}
+                </span>
                 <span>{n.topComplaint}</span>
               </div>
+              
               <div className="hoverIssues">
                 {(n.topIssues || []).map((issue, idx) => (
                   <div key={idx} className="hoverIssueItem">• {issue}</div>
@@ -515,6 +633,6 @@ export function CityMap({
 function createResourceEl(icon: string) {
   const el = document.createElement('div');
   el.className = 'sandboxMarker';
-  el.innerHTML = `<span>${icon}</span>`;
+  el.innerHTML = `<div class="sandboxMarkerInner"><span>${icon}</span></div>`;
   return el;
 }

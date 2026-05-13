@@ -1,6 +1,6 @@
 'use client';
 
-import React, { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import React, { FormEvent, useEffect, useMemo, useRef, useState, memo } from 'react';
 import type { ChatResponsePayload, ChatTurn, CityPulse } from '@/lib/types';
 import { useCity } from './CityProvider';
 
@@ -80,14 +80,14 @@ async function sendMessage(
   return response.json() as Promise<ChatResponsePayload>;
 }
 
-export function Terminal({ pulse, highlightedNeighborhoods, onHighlightedNeighborhoodsChange }: TerminalProps) {
+export const Terminal = memo(({ pulse, highlightedNeighborhoods, onHighlightedNeighborhoodsChange }: TerminalProps) => {
   const { city } = useCity();
   const [input, setInput] = useState('');
   const [history, setHistory] = useState<ChatTurn[]>([]);
   const [isSending, setIsSending] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
-  const [ttsProvider, setTtsProvider] = useState<'huggingface' | 'elevenlabs'>('huggingface');
+  const [ttsProvider, setTtsProvider] = useState<'huggingface' | 'elevenlabs' | 'browser'>('huggingface');
   const [directives, setDirectives] = useState('Friendly, concise, in bullet points, under 10 words each.\n1st point : area name and surrounding.\n2nd point : issue in brief\n3rd point : how to resolve (upto 20 words for this point).');
   const [isInitialized, setIsInitialized] = useState(false);
 
@@ -108,6 +108,7 @@ export function Terminal({ pulse, highlightedNeighborhoods, onHighlightedNeighbo
   }, [pulse.cityId]);
 
   const [showSettings, setShowSettings] = useState(false);
+  const [isTtsOpen, setIsTtsOpen] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
@@ -116,6 +117,9 @@ export function Terminal({ pulse, highlightedNeighborhoods, onHighlightedNeighbo
   async function speakResponse(text: string) {
     if (!voiceEnabled || typeof window === 'undefined') return;
     try {
+      if (ttsProvider === 'browser') {
+        throw new Error('Using browser fallback');
+      }
       const res = await fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -152,7 +156,14 @@ export function Terminal({ pulse, highlightedNeighborhoods, onHighlightedNeighbo
   }
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const el = bottomRef.current;
+    if (!el) return;
+    const scroller = el.closest('[data-terminal-scroll]') as HTMLElement | null;
+    if (scroller) {
+      scroller.scrollTop = scroller.scrollHeight;
+    } else {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
   }, [history]);
 
   useEffect(() => {
@@ -181,7 +192,10 @@ export function Terminal({ pulse, highlightedNeighborhoods, onHighlightedNeighbo
     recognition.maxAlternatives = 1;
     recognition.onresult = (event: SpeechRecognitionResultEvent) => {
       const transcript = event.results?.[0]?.[0]?.transcript ?? '';
-      if (transcript) setInput((current) => `${current}${current ? ' ' : ''}${transcript}`);
+      if (transcript) {
+        setInput(transcript); // Still update input for visual feedback
+        void submitMessage(transcript);
+      }
       setIsListening(false);
     };
     recognition.onerror = () => setIsListening(false);
@@ -259,21 +273,8 @@ export function Terminal({ pulse, highlightedNeighborhoods, onHighlightedNeighbo
           </div>
         )}
 
-        <div className="terminalMetaRow">
-          <span>Voice is optional.</span>
-          <label className="selectWrap" htmlFor="tts-provider-select">
-            <span>TTS</span>
-            <select
-              id="tts-provider-select"
-              value={ttsProvider}
-              onChange={(event) => setTtsProvider(event.target.value as 'huggingface' | 'elevenlabs')}
-            >
-              <option value="huggingface">Hugging Face</option>
-              <option value="elevenlabs">Eleven Labs</option>
-            </select>
-          </label>
-        </div>
-        <div className="terminalOutput" role="log" aria-live="polite">
+
+        <div className="terminalOutput" data-terminal-scroll role="log" aria-live="polite">
           {history.length === 0 && isInitialized ? (
             <div className="starterPanel">
               <p className="starterKicker">Start by asking something specific.</p>
@@ -318,21 +319,65 @@ export function Terminal({ pulse, highlightedNeighborhoods, onHighlightedNeighbo
           <div ref={bottomRef} />
         </div>
         <form className="terminalComposer" onSubmit={handleSubmit}>
-          <input
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-            placeholder={`Ask about ${pulse.cityName}, a district, or a fix...`}
-            aria-label={`Message ${pulse.cityName}`}
-          />
-          <button type="button" onClick={handleMicClick} disabled={isSending}>
-            {isListening ? 'LISTENING...' : 'MIC'}
-          </button>
-          <button type="button" onClick={() => setVoiceEnabled((value) => !value)}>
-            {voiceEnabled ? 'VOICE ON' : 'VOICE OFF'}
-          </button>
-          <button type="submit" disabled={isSending}>
-            {isSending ? 'SENDING...' : 'SEND'}
-          </button>
+          <div className="composerMain">
+            <input
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              placeholder={`Ask about ${pulse.cityName}, a district, or a fix...`}
+              aria-label={`Message ${pulse.cityName}`}
+            />
+            <button 
+              type="submit" 
+              className={`terminalActionBtn sendBtn ${isSending ? 'active' : ''}`} 
+              disabled={isSending}
+            >
+              {isSending ? 'SENDING...' : 'SEND'}
+            </button>
+          </div>
+
+          <div className="composerActions">
+            <div className="composerMeta">
+              <span>VOICE_SYNTH:</span>
+              <div className="customTtsWrapper">
+                <button 
+                  type="button"
+                  className="ttsTriggerBtn" 
+                  onClick={() => setIsTtsOpen(!isTtsOpen)}
+                >
+                  {ttsProvider === 'huggingface' ? 'HUGGING_FACE' : ttsProvider === 'elevenlabs' ? 'ELEVEN_LABS' : 'BROWSER_DEFAULT'}
+                  <span className={`chevron ${isTtsOpen ? 'open' : ''}`}>▼</span>
+                </button>
+                {isTtsOpen && (
+                  <div className="ttsMenu">
+                    <div className={`ttsOption ${ttsProvider === 'huggingface' ? 'active' : ''}`} onClick={() => { setTtsProvider('huggingface'); setIsTtsOpen(false); }}>HUGGING_FACE</div>
+                    <div className="ttsOption disabled" style={{ opacity: 0.5, cursor: 'not-allowed', display: 'flex', justifyContent: 'space-between' }}>
+                      <span>ELEVEN_LABS</span>
+                      <span style={{ fontSize: '0.45rem', color: '#ffdd57', marginLeft: '8px' }}>[PAID_ONLY]</span>
+                    </div>
+                    <div className={`ttsOption ${ttsProvider === 'browser' ? 'active' : ''}`} onClick={() => { setTtsProvider('browser'); setIsTtsOpen(false); }}>BROWSER_DEFAULT</div>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button 
+                type="button" 
+                className={`terminalActionBtn micBtn ${isListening ? 'active' : ''}`} 
+                onClick={handleMicClick} 
+                disabled={isSending}
+              >
+                {isListening ? 'LISTENING...' : 'MIC'}
+              </button>
+              <button 
+                type="button" 
+                className={`terminalActionBtn voiceBtn ${voiceEnabled ? 'active' : ''}`} 
+                onClick={() => setVoiceEnabled((value) => !value)}
+              >
+                {voiceEnabled ? 'VOICE_ON' : 'VOICE_OFF'}
+              </button>
+            </div>
+          </div>
         </form>
         {highlightedNeighborhoods.length > 0 ? (
           <div className="highlightStrip">FOCUS: {highlightedNeighborhoods.join(', ')}</div>

@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { CityPulse } from '@/lib/types';
 import { CitySelector } from './CitySelector';
 
@@ -20,21 +21,26 @@ export function VitalsBar({ pulse, theme, onToggleTheme, onOpenPerspective }: Vi
 
   return (
     <header className="vitalsBar">
-      <div className="brandBlock">
+      <Link href="/" className="brandBlock" style={{ textDecoration: 'none' }}>
         <div className="brandLogo">
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <circle cx="9" cy="9" r="3" fill="currentColor" opacity="0.9" />
-            <circle cx="9" cy="9" r="7" stroke="currentColor" strokeWidth="0.8" opacity="0.4" />
-            <line x1="2" y1="9" x2="5" y2="9" stroke="currentColor" strokeWidth="0.8" opacity="0.6" />
-            <line x1="13" y1="9" x2="16" y2="9" stroke="currentColor" strokeWidth="0.8" opacity="0.6" />
-            <line x1="9" y1="2" x2="9" y2="5" stroke="currentColor" strokeWidth="0.8" opacity="0.6" />
-            <line x1="9" y1="13" x2="9" y2="16" stroke="currentColor" strokeWidth="0.8" opacity="0.6" />
+          <svg width="20" height="20" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M16 2L29 9.5V22.5L16 30L3 22.5V9.5L16 2Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+            <path d="M16 2V30" stroke="currentColor" strokeWidth="1" strokeOpacity="0.5"/>
+            <path d="M3 9.5L29 22.5" stroke="currentColor" strokeWidth="1" strokeOpacity="0.5"/>
+            <path d="M29 9.5L3 22.5" stroke="currentColor" strokeWidth="1" strokeOpacity="0.5"/>
+            <circle cx="16" cy="16" r="4" fill="currentColor"/>
+            <circle cx="16" cy="2" r="1.5" fill="currentColor"/>
+            <circle cx="29" cy="9.5" r="1.5" fill="currentColor"/>
+            <circle cx="29" cy="22.5" r="1.5" fill="currentColor"/>
+            <circle cx="16" cy="30" r="1.5" fill="currentColor"/>
+            <circle cx="3" cy="22.5" r="1.5" fill="currentColor"/>
+            <circle cx="3" cy="9.5" r="1.5" fill="currentColor"/>
           </svg>
         </div>
 
         <span className="brandTitle">CITYMIND</span>
         <div className="brandPulse" />
-      </div>
+      </Link>
 
       <div className="citySelectorSlot">
         <CitySelector />

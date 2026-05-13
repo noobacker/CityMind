@@ -6,19 +6,22 @@
 ## 1. PRODUCT OVERVIEW
 
 ### What Is CityMind?
-CityMind is a conversational AI interface that personifies New York City as a living, breathing organism. Users interact with the city directly — asking it how it feels, what's going wrong, and what's coming next. The city responds in first-person, in real time, powered by live data streams and a deeply characterful LLM agent.
+CityMind is a conversational AI interface that personifies the city as a living, breathing organism. Users interact with the city directly — asking it how it feels, what's going wrong, and what's coming next. The city responds in first-person, in real time, powered by live data streams from across the globe and a deeply characterful LLM agent.
+
 
 ### The Core Experience
-- **Left Panel:** Retro terminal-style chat interface. User types. NYC responds in character, with typewriter animation.
-- **Right Panel:** Live pulsing Mapbox map of NYC. Neighborhoods light up, pulse red/amber/green based on stress. When NYC mentions a neighborhood, the map flies to it and highlights it in real time.
-- **Bottom Bar:** Live vitals — NYC's current mood, overall stress score, active incidents count, AQI, MTA status.
+- **Left Panel:** Retro terminal-style chat interface. User types. The city responds in character, with typewriter animation.
+- **Right Panel:** Live pulsing Mapbox map. Neighborhoods light up, pulse red/amber/green based on stress. When the city mentions a location, the map flies to it and highlights it in real time.
+- **Bottom Bar:** Live vitals — The city's current mood, overall stress score, active incidents count, AQI, and transit status.
+
 
 ### The Demo Moment
-> User types: *"Hey NYC, how are you feeling right now?"*
+> User types: *"Hey London, how are you feeling right now?"*
 >
-> NYC responds: *"Honestly? Exhausted. The L train has been down for 3 hours and Bushwick is screaming at me. Air quality in the Bronx is the worst it's been this week — nobody's talking about it but I feel it. There's a water main pattern developing in Queens — same block, 4 complaints in 6 days. I've seen this before. It never ends well."*
+> London responds: *"Honestly? Tense. The Central Line is a mess right now and I'm feeling the heat in Soho. Air quality in the East End is dipping—nobody's talking about it but I feel it. There's a pattern developing in Hackney—trash collection delays are piling up. I've seen this before. It never ends well."*
 >
-> The map simultaneously flies to the Bronx, pulses red, then pans to Queens.
+> The map simultaneously flies to the East End, pulses red, then pans to Hackney.
+
 
 ---
 

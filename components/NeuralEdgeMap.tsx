@@ -1,7 +1,7 @@
 'use client';
 
-import React, { motion, AnimatePresence } from 'framer-motion';
-import { useEffect, useMemo, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect, useMemo, useState, memo } from 'react';
 
 interface DistrictNode {
   id: string;
@@ -52,7 +52,7 @@ function nodesFromPulse(pulse: any): DistrictNode[] {
   });
 }
 
-export const NeuralEdgeMap = React.memo(({ pulse, theme = 'dark' }: { pulse: any; theme?: 'dark' | 'light' }) => {
+export const NeuralEdgeMap = memo(({ pulse, theme = 'dark' }: { pulse: any; theme?: 'dark' | 'light' }) => {
   const nodes = useMemo(() => nodesFromPulse(pulse), [pulse]);
 
   const connections = useMemo(() => {

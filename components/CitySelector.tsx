@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, memo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useCity, type ActiveCity } from './CityProvider';
 
@@ -23,7 +23,7 @@ interface CitySelectorProps {
 
 const POPULAR_IDS = ['nyc', 'london', 'tokyo', 'paris', 'mumbai', 'singapore', 'dubai', 'sydney', 'sao_paulo', 'berlin'];
 
-export const CitySelector = React.memo(({ variant = 'pill' }: CitySelectorProps) => {
+export const CitySelector = memo(({ variant = 'pill' }: CitySelectorProps) => {
   const { city, setCity, recents } = useCity();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -371,7 +371,7 @@ export const CitySelector = React.memo(({ variant = 'pill' }: CitySelectorProps)
       `}</style>
     </div>
   );
-}
+});
 
 
 function CitySection({
@@ -414,6 +414,6 @@ function CitySection({
       ))}
     </div>
   );
-});
+}
 
 CitySelector.displayName = 'CitySelector';
