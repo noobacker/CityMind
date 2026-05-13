@@ -31,6 +31,8 @@ export interface CityIdentity {
   timezone: string;
   tempUnit: 'F' | 'C';
   isCustom?: boolean;
+  lat?: number;
+  lon?: number;
 }
 
 export interface CityPulse {

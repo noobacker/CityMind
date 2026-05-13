@@ -120,6 +120,34 @@ export async function geocodeCity(query: string): Promise<NominatimResult[]> {
   }
 }
 
+async function reverseGeocode(lat: number, lon: number): Promise<string | null> {
+  const cacheKey = `reverse:${lat.toFixed(4)}:${lon.toFixed(4)}`;
+  const cached = getCache<string>(cacheKey);
+  if (cached) return cached;
+
+  const params = new URLSearchParams({
+    lat: String(lat),
+    lon: String(lon),
+    format: 'json',
+    'accept-language': 'en',
+    zoom: '10',
+  });
+
+  try {
+    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?${params.toString()}`, {
+      headers: { 'User-Agent': NOMINATIM_USER_AGENT, 'Accept': 'application/json' },
+      cache: 'no-store',
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    const name = data.address?.city || data.address?.town || data.address?.village || data.address?.municipality || data.address?.state || null;
+    if (name) setCache(cacheKey, name, DISCOVERY_TTL);
+    return name;
+  } catch {
+    return null;
+  }
+}
+
 async function fetchOverpassPoints(lat: number, lon: number, radiusMeters: number, types: string[]): Promise<OverpassPoint[]> {
   const query = `
     [out:json][timeout:25];
@@ -211,9 +239,17 @@ export async function discoverCity(input: {
   country: string;
   countryCode: string;
 }): Promise<CityDef> {
-  const cacheKey = `discover:${input.lat.toFixed(3)}:${input.lon.toFixed(3)}`;
+  const cacheKey = `discover_v2:${input.lat.toFixed(3)}:${input.lon.toFixed(3)}`;
   const cached = getCache<CityDef>(cacheKey);
   if (cached) return cached;
+
+  let activeName = input.name;
+  // If we have a generic placeholder, try to resolve the real name
+  const isGeneric = activeName.toLowerCase().includes('detected') || activeName.toLowerCase().includes('location');
+  if (isGeneric) {
+    const resolved = await reverseGeocode(input.lat, input.lon);
+    if (resolved) activeName = resolved;
+  }
 
   const cc = (input.countryCode || '').toUpperCase();
   
@@ -251,7 +287,7 @@ export async function discoverCity(input: {
 
   const city: CityDef = {
     id,
-    name: input.name,
+    name: activeName,
     country: input.country,
     countryCode: cc,
     flag: flagFromCountryCode(cc),
