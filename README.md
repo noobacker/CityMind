@@ -7,9 +7,9 @@
 ---
 
 ### 🏙️ What is CityMind?
-CityMind is a real-time **Urban Intelligence Engine** that transforms raw municipal data into a living, queryable nervous system. It ingests 311 service requests, MTA disruptions, air quality, weather, and permitted events every 30 seconds to provide a high-fidelity visual of a city's collective stress.
+CityMind is a real-time Planetary Urban Intelligence Engine that transforms raw municipal data into a living, queryable nervous system. It scales beyond single borders, ingesting high-velocity streams—from global service requests and transit disruptions to atmospheric sensors and hyper-local events—every 30 seconds to provide a high-fidelity visual of a city's collective stress.
 
-The goal is to bridge the gap between "what" is happening in a city and "why" it matters to the people living within it, turning cold metrics into empathetic, actionable narratives.
+The goal is to bridge the gap between "what" is happening in any urban center across the globe and "why" it matters to the people living within it. CityMind turns cold, fragmented metrics into empathetic, actionable narratives, giving the city a voice and its citizens a mind.
 
 ---
 
