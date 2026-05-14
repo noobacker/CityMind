@@ -7,23 +7,25 @@
 ---
 
 ### 🏙️ What is CityMind?
-CityMind is a real-time Planetary Urban Intelligence Engine that transforms raw municipal data into a living, queryable nervous system. It scales beyond single borders, ingesting high-velocity streams—from global service requests and transit disruptions to atmospheric sensors and hyper-local events—every 30 seconds to provide a high-fidelity visual of a city's collective stress.
+CityMind is a real-time **Planetary Urban Intelligence Engine** that transforms raw municipal data into a living, queryable nervous system. Originally born from the data-rich streets of New York, it has evolved into a global platform that ingests high-velocity streams—from municipal service requests and global transit disruptions to atmospheric vitals and hyper-local events—every 30 seconds to provide a high-fidelity visual of any city's collective stress.
 
-The goal is to bridge the gap between "what" is happening in any urban center across the globe and "why" it matters to the people living within it. CityMind turns cold, fragmented metrics into empathetic, actionable narratives, giving the city a voice and its citizens a mind.
+The goal is to bridge the gap between "what" is happening in our urban centers and "why" it matters to the people living within them. CityMind turns cold, fragmented metrics into empathetic, actionable narratives for a connected planet.
 
 ---
 
 ### ⚡ Neural Features
 
 #### 🟢 Live Pulse Monitoring
-Every neighborhood in NYC gets a real-time **Stress Score (0–100)**, visualized on an interactive geospatial grid. The score is dynamically computed from:
-*   **Complaint Volume**: Real-time 311 trends (Noise, Heat, Rodents, etc.)
-*   **Transit Health**: Live MTA disruptions and line-level severity.
-*   **Atmospheric Data**: Air quality (PM2.5) and weather conditions.
-*   **Social Load**: Public events and infrastructure stress.
+CityMind computes a real-time **Stress Score (0–100)** for every urban node, visualized on an interactive geospatial grid. While initially optimized for NYC, the engine now scales globally by standardizing disparate urban data into a unified sensory mesh:
+
+*   **Global Municipal Adapters**: Unified ingestion of service requests (311/OpenData) via standardized SODA adapters for any supported city worldwide.
+*   **Planetary Transit Feed**: Live multi-modal health monitoring powered by global **GTFS-RT** (General Transit Feed Specification Realtime) streams.
+*   **Atmospheric Vitals**: Real-time air quality and meteorological data sourced from planetary sensor networks (Open-Meteo & IQAir).
+*   **Social Mesh Mapping**: Dynamic tracking of global public events and infrastructure load to measure the "vibe" and stress of a district.
+
 
 #### 💬 Natural Language Console
-Type any question about the city—*"What's the single biggest pressure in Harlem right now?"*—and CityMind answers using live pulse data. Powered by **Anthropic Claude**, the system maintains a context-aware conversation that syncs with the map.
+Type any question about the city—*"What's the single biggest pressure in this district right now?"*—and CityMind answers using live pulse data. Powered by **Anthropic Claude**, the system maintains a context-aware conversation that syncs with the map.
 
 #### 🔮 Predictive T+24H Forecast
 Toggle to the future. CityMind projects stress levels 24 hours ahead by layering:
@@ -32,7 +34,7 @@ Toggle to the future. CityMind projects stress levels 24 hours ahead by layering
 *   **Transit Forecasts**: Planned maintenance and service changes.
 
 #### 🏗️ Policy Sandbox
-A real-world simulation tool. Drag-and-drop city resources—**PD Units, Sanitation Crews, EMS Response, MTA Repair**—onto the map to see projected stress reduction based on resource affinity and proximity.
+A real-world simulation tool. Drag-and-drop city resources—**PD Units, Sanitation Crews, EMS Response, Transit Repair**—onto the map to see projected stress reduction based on resource affinity and proximity.
 
 #### 🚨 Anomaly Detection
 Instant alerts triggered when neighborhood stress exceeds historical statistical thresholds. The system identifies genuine "spikes" versus normal urban noise, flagging them visually on the map.
@@ -44,7 +46,7 @@ Instant alerts triggered when neighborhood stress exceeds historical statistical
 *   **UI & 3D**: Tailwind CSS, Three.js (React Three Fiber), Framer Motion
 *   **Geospatial**: Mapbox GL JS 3 (Globe projection)
 *   **Intelligence**: Claude 3.5 API with live context-injection
-*   **Live Feeds**: NYC Open Data (SODA), MTA Alerts (Scraper), Open-Meteo, IQAir
+*   **Live Feeds**: Municipal Open Data (SODA), Global Transit Alerts (GTFS-RT), Open-Meteo, IQAir
 
 ---
 
